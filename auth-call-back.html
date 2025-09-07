@@ -1,31 +1,107 @@
+<!-- ===========================
+     auth-call-back.html
+     =========================== -->
 <!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Authenticating…</title></head>
-<body>
-<script type="module">
-  import { StytchHeadlessClient } from "https://esm.sh/@stytch/vanilla-js/headless";
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solara — Finishing sign-in…</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{ --accent:#6366f1; --accent-ink:#4f46e5; }
+    html,body{height:100%}
+    body{font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Inter", "Noto Sans", sans-serif}
+    .lift{transition:transform .15s ease, box-shadow .15s ease}
+    .lift:hover{transform:translateY(-1px)}
+  </style>
+</head>
+<body class="flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+  <!-- Header -->
+  <header class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Solara</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a id="cancelLink" href="index.html" class="text-sm text-indigo-600 hover:underline">Cancel</a>
+      <button id="themeToggle" class="px-3 py-1.5 text-sm rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition" aria-label="Toggle theme">🌗</button>
+    </div>
+  </header>
 
-  const STYTCH_PUBLIC_TOKEN = "public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8"; // replace
-  const stytch = new StytchHeadlessClient(STYTCH_PUBLIC_TOKEN);
+  <!-- Main -->
+  <main class="flex-1 grid place-items-center px-6 py-12">
+    <div class="w-full max-w-md text-center">
+      <div class="mx-auto w-12 h-12 rounded-full border-4 border-indigo-200 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-400 animate-spin"></div>
+      <h2 class="mt-6 text-2xl font-bold">Finishing up…</h2>
+      <p id="status" class="mt-2 text-sm text-gray-600 dark:text-gray-300">Validating your sign-in…</p>
 
-  const params = new URLSearchParams(location.search);
-  const next = params.get("next") || "/onboard";
-  const token = params.get("token");
-  const type = params.get("stytch_token_type") || "oauth";
+      <a id="manualLink" href="solara.html" class="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold lift">
+        Continue to Solara
+      </a>
 
-  try {
-    if (!token) throw new Error("No token");
-    if (type === "magic_links" || type === "magic_link") {
-      await stytch.magicLinks.authenticate(token, { session_duration_minutes: 60 });
-    } else {
-      await stytch.oauth.authenticate(token, { session_duration_minutes: 60 });
+      <div class="mt-4 text-xs text-gray-500 dark:text-gray-400">If you aren’t redirected, use the button above.</div>
+    </div>
+  </main>
+
+  <footer class="text-center text-xs text-gray-500 dark:text-gray-400 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+    © 2025 ZenLock Group (ZLG). All rights reserved.
+  </footer>
+
+  <script type="module">
+    // Theme toggle + persistence
+    const root = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      root.classList.add('dark');
     }
-    location.replace(next);
-  } catch (e) {
-    console.error(e);
-    location.replace("/start?auth=error");
-  }
-</script>
+    themeToggle.addEventListener('click', () => {
+      root.classList.toggle('dark');
+      localStorage.setItem('theme', root.classList.contains('dark') ? 'dark' : 'light');
+    });
+
+    // Compute destination (default to the app)
+    const params = new URLSearchParams(location.search);
+    let next = params.get('next');
+    if (!next) { try { next = sessionStorage.getItem('solara_next') || ''; } catch {} }
+    if (!next) next = 'solara.html';
+
+    // Keep links coherent if user clicks manually
+    document.getElementById('manualLink').href = next;
+    document.getElementById('cancelLink').href = next === 'solara.html' ? 'index.html' : next;
+
+    // --- Finalize OAuth on the callback page ---
+    import { StytchHeadlessClient } from 'https://esm.sh/@stytch/vanilla-js/headless';
+    // TODO: replace with your real public token from the Stytch dashboard
+    const STYTCH_PUBLIC_TOKEN = 'public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8';
+    const stytch = new StytchHeadlessClient(STYTCH_PUBLIC_TOKEN);
+
+    const statusEl = document.getElementById('status');
+
+    async function finalizeAuth(){
+      const token = params.get('token'); // Stytch passes an OAuth token to your redirect URL
+      if (!token) {
+        statusEl.textContent = 'No token found in URL. Please try signing in again.';
+        return;
+      }
+      try {
+        statusEl.textContent = 'Verifying OAuth token…';
+        // Creates or extends a session and mints cookies in the browser
+        await stytch.oauth.authenticate({
+          token,
+          session_duration_minutes: 60, // adjust as desired
+        });
+        try { sessionStorage.setItem('solara_auth_complete', '1'); } catch {}
+        // Redirect to app (or the provided 'next')
+        location.replace(next);
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Authentication failed. Please try again.';
+      }
+    }
+
+    finalizeAuth();
+  </script>
 </body>
 </html>
