@@ -82,8 +82,8 @@
     const btn = document.getElementById('googleGo');
 
     // Build redirect back to our static callback page, carrying forward "next"
-    const redirectTo = new URL('auth-call-back.html', location.href).toString() + `?next=${encodeURIComponent(next)}`;
-
+// new
+const redirectTo = new URL('auth-call-back.html', location.href).toString();
     // Helper: if session already exists, just bounce to app
     function tryExistingSession(){
       try{
