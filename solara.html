@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solara – Adaptive Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .drag-over { background-color: rgba(99, 102, 241, 0.1); border: 2px dashed #6366f1; }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
+
+  <header class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Solara</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
+    </div>
+    <div id="taskButtons" class="space-x-3 flex items-center hidden">
+      <button onclick="clearAllTasks()" title="Clear All Tasks" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6" />
+        </svg>
+      </button>
+      <button id="newTaskBtn" onclick="addNewTask()" class="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">+</button>
+    </div>
+  </header>
+
+  <main class="p-6 flex-1 overflow-y-auto">
+    <div id="board" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center text-gray-400 italic"></div>
+  </main>
+
+  <div class="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50">
+    <div class="flex items-center justify-between px-6 py-3 overflow-x-auto">
+      <div class="flex items-center gap-2 w-full overflow-x-auto px-1 py-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+        <div id="tabs" class="flex gap-2 min-w-max"></div>
+        <button onclick="promptNewTab()" title="Add Tab"
+          class="p-2 rounded-full bg-green-100 hover:bg-green-200 text-green-700 transition duration-150 shadow-sm border border-green-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+      <button onclick="exportBoardAsPDF()" class="ml-4 p-2 rounded-full hover:bg-indigo-100 text-indigo-600 transition" title="Download Board">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 4h14v-2H5v2z"/>
+        </svg>
+      </button>
+    </div>
+    <footer class="text-center text-xs text-gray-500 dark:text-gray-400 px-6 py-3 border-t border-gray-200 dark:border-gray-700">
+      © 2025 ZenLock Group (ZLG). All rights reserved.
+    </footer>
+  </div>
+
+<script>
+let activeTab = null;
+let tabData = JSON.parse(localStorage.getItem("solara-tabs")) || {};
+
+function saveTabsToStorage() {
+  localStorage.setItem("solara-tabs", JSON.stringify(tabData));
+}
+
+function switchTab(tabName) {
+  if (!tabData[tabName]) return;
+  saveTasks();
+  activeTab = tabName;
+  document.querySelectorAll(".tab-button").forEach(btn =>
+    btn.classList.remove("border-indigo-500", "text-indigo-700", "dark:text-white", "font-semibold", "bg-indigo-50", "dark:bg-indigo-600/30")
+  );
+  const activeBtn = Array.from(document.querySelectorAll(".tab-button")).find(btn => btn.dataset.tab === tabName);
+  if (activeBtn) {
+    activeBtn.classList.add("border-indigo-500", "text-indigo-700", "dark:text-white", "font-semibold", "bg-indigo-50", "dark:bg-indigo-600/30");
+  }
+  renderBoard();
+}
+
+function addTab(name) {
+  if (tabData[name]) return switchTab(name);
+  tabData[name] = { todo: [], inprogress: [], done: [] };
+  saveTabsToStorage();
+  renderTabs();
+  switchTab(name);
+}
+
+function promptNewTab() {
+  const name = prompt("Enter tab name:");
+  if (name && name.trim()) addTab(name.trim());
+}
+
+function deleteTab(name) {
+  if (!confirm(`Delete tab "${name}" and all its tasks?`)) return;
+  delete tabData[name];
+  if (activeTab === name) activeTab = Object.keys(tabData)[0] || null;
+  saveTabsToStorage();
+  renderTabs();
+  renderBoard();
+}
+
+function renderTabs() {
+  const tabsContainer = document.getElementById("tabs");
+  const taskButtons = document.getElementById("taskButtons");
+  tabsContainer.innerHTML = "";
+
+  if (Object.keys(tabData).length === 0) {
+    taskButtons.classList.add("hidden");
+    return;
+  }
+
+  taskButtons.classList.remove("hidden");
+
+  Object.keys(tabData).forEach(name => {
+    const tabBtn = document.createElement("button");
+    tabBtn.className = `
+      tab-button px-4 py-1.5 rounded-full text-sm font-medium
+      bg-transparent border border-gray-300 dark:border-gray-600
+      text-gray-700 dark:text-gray-300
+      hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-white
+      transition-all duration-150 truncate max-w-[120px]
+    `;
+    if (name === activeTab) {
+      tabBtn.classList.add(
+        "border-indigo-500", "text-indigo-700", "dark:text-white", "font-semibold", "bg-indigo-50", "dark:bg-indigo-600/30"
+      );
+    }
+    tabBtn.dataset.tab = name;
+    tabBtn.innerHTML = `<span>${name}</span>`;
+    tabBtn.onclick = () => switchTab(name);
+
+    // Inject double-click to rename
+    tabBtn.ondblclick = () => {
+      const newName = prompt("Rename tab:", name);
+      if (!newName || newName.trim() === "" || newName === name || tabData[newName]) return;
+      tabData[newName] = tabData[name];
+      delete tabData[name];
+      if (activeTab === name) activeTab = newName;
+      saveTabsToStorage();
+      renderTabs();
+      switchTab(activeTab);
+    };
+
+    tabBtn.oncontextmenu = (e) => {
+      e.preventDefault();
+      deleteTab(name);
+    };
+    tabsContainer.appendChild(tabBtn);
+  });
+}
+
+function renderBoard() {
+  const board = document.getElementById("board");
+  board.classList.add("fade-in");
+  board.innerHTML = "";
+
+  if (!activeTab || !tabData[activeTab]) {
+    board.innerHTML = `<div class='col-span-3 text-gray-400 italic py-12'>No tab selected. Click the + icon to create one.</div>`;
+    return;
+  }
+
+  ["todo", "inprogress", "done"].forEach(col => {
+    const colEl = document.createElement("div");
+    colEl.id = col;
+    colEl.className = "bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-sm min-h-[200px]";
+    const label = col === "todo" ? "To Do" : col.charAt(0).toUpperCase() + col.slice(1).replace("progress", " Progress");
+    colEl.innerHTML = `<h2 class='text-lg font-semibold mb-2'>${label}</h2>`;
+    
+    colEl.ondragover = (e) => {
+      e.preventDefault();
+      colEl.classList.add("drag-over");
+    };
+    colEl.ondragleave = () => colEl.classList.remove("drag-over");
+    colEl.ondrop = (e) => {
+      e.preventDefault();
+      colEl.classList.remove("drag-over");
+      const taskId = e.dataTransfer.getData("text/plain");
+      moveTaskToColumn(taskId, col);
+    };
+
+    const tasks = tabData[activeTab][col];
+    if (tasks.length === 0) {
+      colEl.innerHTML += `<p class='text-sm text-gray-400 italic'>No tasks</p>`;
+    }
+
+    tasks.forEach(task => {
+      const taskEl = createTaskElement(task.id, task.content, task.dueDate, task.priority, col);
+      colEl.appendChild(taskEl);
+    });
+
+    board.appendChild(colEl);
+  });
+}
+
+function createTaskElement(id, content, dueDate, priority, column) {
+  const el = document.createElement("div");
+  el.className = "p-2 mb-2 rounded bg-white dark:bg-gray-700 shadow cursor-pointer";
+  el.draggable = true;
+  el.id = id;
+  el.textContent = content;
+
+  el.ondragstart = (e) => {
+    e.dataTransfer.setData("text/plain", id);
+  };
+
+  el.onclick = () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = content;
+    input.className = "w-full p-1 rounded text-sm bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100";
+    input.setAttribute("data-column", column);
+    el.replaceWith(input);
+    input.focus();
+
+    input.onblur = () => {
+      saveEditedTask(id, input.value.trim(), column);
+    };
+    input.onkeydown = (e) => {
+      if (e.key === "Enter") input.blur();
+    };
+  };
+
+  return el;
+}
+
+function saveEditedTask(taskId, newContent, column) {
+  if (!activeTab || !tabData[activeTab]) return;
+  const taskList = tabData[activeTab][column];
+  const task = taskList.find(t => t.id === taskId);
+  if (task) {
+    task.content = newContent || task.content;
+    saveTabsToStorage();
+    renderBoard();
+  }
+}
+
+function moveTaskToColumn(taskId, targetCol) {
+  if (!activeTab || !tabData[activeTab]) return;
+  let found = null;
+  ["todo", "inprogress", "done"].forEach(col => {
+    const index = tabData[activeTab][col].findIndex(t => t.id === taskId);
+    if (index !== -1) {
+      found = tabData[activeTab][col].splice(index, 1)[0];
+    }
+  });
+  if (found) {
+    tabData[activeTab][targetCol].push(found);
+    saveTabsToStorage();
+    renderBoard();
+  }
+}
+
+function clearAllTasks() {
+  if (!activeTab) return;
+  if (!confirm("Clear all tasks in this tab?")) return;
+  tabData[activeTab] = { todo: [], inprogress: [], done: [] };
+  saveTabsToStorage();
+  renderBoard();
+}
+
+function addNewTask() {
+  if (!activeTab || !tabData[activeTab]) return;
+
+  const content = prompt("Enter task content:");
+  if (!content || !content.trim()) return;
+
+  const id = "task-" + Date.now();
+  const newTask = {
+    id,
+    content: content.trim(),
+    dueDate: null,
+    priority: null
+  };
+
+  tabData[activeTab]["todo"].push(newTask);
+  saveTabsToStorage();
+  renderBoard();
+}
+
+function saveTasks() {}
+
+function exportBoardAsPDF() {
+  html2pdf().from(document.getElementById("board")).save("solara-board.pdf");
+}
+
+window.onload = () => {
+  if (Object.keys(tabData).length === 0) {
+    const defaultName = "Click to edit";
+    tabData[defaultName] = { todo: [], inprogress: [], done: [] };
+    saveTabsToStorage();
+  }
+  renderTabs();
+  activeTab = Object.keys(tabData)[0];
+  switchTab(activeTab);
+};
+</script>
+</body>
+</html>
