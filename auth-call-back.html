@@ -1,5 +1,5 @@
 <!-- ===========================
-     auth-call-back.html
+     auth-call-back.html (Consumer / B2C headless)
      =========================== -->
 <!DOCTYPE html>
 <html lang="en" class="h-full">
@@ -40,6 +40,8 @@
         Continue to Solara
       </a>
 
+      <pre id="debug" class="mt-4 text-left text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap break-words"></pre>
+
       <div class="mt-4 text-xs text-gray-500 dark:text-gray-400">If you aren’t redirected, use the button above.</div>
     </div>
   </main>
@@ -61,43 +63,62 @@
       localStorage.setItem('theme', root.classList.contains('dark') ? 'dark' : 'light');
     });
 
-    // Compute destination (default to the app)
-    const params = new URLSearchParams(location.search);
-    let next = params.get('next');
-    if (!next) { try { next = sessionStorage.getItem('solara_next') || ''; } catch {} }
-    if (!next) next = 'solara.html';
-
-    // Keep links coherent if user clicks manually
+    // Destination (prefer sessionStorage; no query params on redirect URL)
+    function getNext() {
+      try {
+        const s = sessionStorage.getItem('solara_next');
+        if (s) return s;
+      } catch {}
+      return 'solara.html';
+    }
+    const next = getNext();
     document.getElementById('manualLink').href = next;
     document.getElementById('cancelLink').href = next === 'solara.html' ? 'index.html' : next;
 
-    // --- Finalize OAuth on the callback page ---
+    const params = new URLSearchParams(location.search);
+    const statusEl = document.getElementById('status');
+    const debugEl = document.getElementById('debug');
+
+    // --- Finalize on the callback page (Consumer/B2C) ---
     import { StytchHeadlessClient } from 'https://esm.sh/@stytch/vanilla-js/headless';
-    // TODO: replace with your real public token from the Stytch dashboard
+
+    // Replace with your real public token (test vs live must match your environment)
     const STYTCH_PUBLIC_TOKEN = 'public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8';
     const stytch = new StytchHeadlessClient(STYTCH_PUBLIC_TOKEN);
 
-    const statusEl = document.getElementById('status');
-
     async function finalizeAuth(){
-      const token = params.get('token'); // Stytch passes an OAuth token to your redirect URL
+      const token = params.get('token');
+      const tokenType = params.get('stytch_token_type'); // 'oauth' or 'magic_links.*' etc.
       if (!token) {
         statusEl.textContent = 'No token found in URL. Please try signing in again.';
+        debugEl.textContent = `URL: ${location.href}`;
         return;
       }
+
       try {
-        statusEl.textContent = 'Verifying OAuth token…';
-        // Creates or extends a session and mints cookies in the browser
-        await stytch.oauth.authenticate({
-          token,
-          session_duration_minutes: 60, // adjust as desired
-        });
+        statusEl.textContent = `Verifying ${tokenType || 'OAuth'} token…`;
+
+        if (tokenType && tokenType.startsWith('magic_links')) {
+          // e.g. 'magic_links.email'
+          await stytch.magicLinks.authenticate({
+            magic_links_token: token,
+            session_duration_minutes: 60,
+          });
+        } else {
+          // Default to OAuth (Google, etc.)
+          await stytch.oauth.authenticate({
+            token,
+            session_duration_minutes: 60,
+          });
+        }
+
         try { sessionStorage.setItem('solara_auth_complete', '1'); } catch {}
-        // Redirect to app (or the provided 'next')
         location.replace(next);
       } catch (err) {
         console.error(err);
-        statusEl.textContent = 'Authentication failed. Please try again.';
+        const msg = (err?.error_message || err?.message || 'Authentication failed.');
+        statusEl.textContent = msg + ' Please try again.';
+        debugEl.textContent = JSON.stringify(err, null, 2);
       }
     }
 
