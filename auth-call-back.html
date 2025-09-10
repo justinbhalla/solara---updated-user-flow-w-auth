@@ -63,7 +63,7 @@
       localStorage.setItem('theme', root.classList.contains('dark') ? 'dark' : 'light');
     });
 
-    // Destination (prefer sessionStorage; no query params on redirect URL)
+    // Destination (prefer sessionStorage; avoid query params on redirect URL)
     function getNext() {
       try {
         const s = sessionStorage.getItem('solara_next');
@@ -82,13 +82,13 @@
     // --- Finalize on the callback page (Consumer/B2C) ---
     import { StytchHeadlessClient } from 'https://esm.sh/@stytch/vanilla-js/headless';
 
-    // Replace with your real public token (test vs live must match your environment)
+    // Replace with your real public token (test vs live must match environment)
     const STYTCH_PUBLIC_TOKEN = 'public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8';
     const stytch = new StytchHeadlessClient(STYTCH_PUBLIC_TOKEN);
 
     async function finalizeAuth(){
       const token = params.get('token');
-      const tokenType = params.get('stytch_token_type'); // 'oauth' or 'magic_links.*' etc.
+      const tokenType = params.get('stytch_token_type'); // 'oauth' or 'magic_links.*'
       if (!token) {
         statusEl.textContent = 'No token found in URL. Please try signing in again.';
         debugEl.textContent = `URL: ${location.href}`;
@@ -99,15 +99,13 @@
         statusEl.textContent = `Verifying ${tokenType || 'OAuth'} token…`;
 
         if (tokenType && tokenType.startsWith('magic_links')) {
-          // e.g. 'magic_links.email'
-          await stytch.magicLinks.authenticate({
-            magic_links_token: token,
+          // Correct signature: token, options
+          await stytch.magicLinks.authenticate(token, {
             session_duration_minutes: 60,
           });
         } else {
-          // Default to OAuth (Google, etc.)
-          await stytch.oauth.authenticate({
-            token,
+          // Default to OAuth (Google, etc.) — correct signature: token, options
+          await stytch.oauth.authenticate(token, {
             session_duration_minutes: 60,
           });
         }
