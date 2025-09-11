@@ -6,33 +6,68 @@
   <title>Solara – Adaptive Workspace</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Stytch Browser SDK -->
+  <script src="https://js.stytch.com/stytch.js"></script>
   <style>
     .fade-in { animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .drag-over { background-color: rgba(99, 102, 241, 0.1); border: 2px dashed #6366f1; }
+    .menu-card { box-shadow: 0 10px 20px rgba(0,0,0,.08); }
   </style>
 </head>
 <body class="flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
 
+  <!-- Header -->
   <header class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
     <div>
       <h1 class="text-3xl font-bold tracking-tight">Solara</h1>
       <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
     </div>
-    <div id="taskButtons" class="space-x-3 flex items-center hidden">
-      <button onclick="clearAllTasks()" title="Clear All Tasks" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6" />
-        </svg>
+
+    <!-- Right auth/actions area -->
+    <div class="flex items-center gap-3">
+      <!-- Visible when signed OUT -->
+      <button id="googleBtn" class="hidden px-3 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">
+        Continue with Google
       </button>
-      <button id="newTaskBtn" onclick="addNewTask()" class="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">+</button>
+
+      <!-- Visible when signed IN -->
+      <div id="userArea" class="hidden relative">
+        <button id="userButton" class="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+          <span id="avatar" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"></span>
+          <span id="userName" class="text-sm font-medium"></span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 rounded-xl menu-card bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div class="px-4 py-3 text-sm">
+            <div id="userEmail" class="text-gray-600 dark:text-gray-300"></div>
+          </div>
+          <div class="border-t border-gray-100 dark:border-gray-700"></div>
+          <button id="addUserBtn" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700">Add user…</button>
+          <button id="signOutBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Sign out</button>
+        </div>
+      </div>
+
+      <div id="taskButtons" class="space-x-3 flex items-center hidden">
+        <button onclick="clearAllTasks()" title="Clear All Tasks" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6" />
+          </svg>
+        </button>
+        <button id="newTaskBtn" onclick="addNewTask()" class="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">+</button>
+      </div>
     </div>
   </header>
 
+  <!-- Main -->
   <main class="p-6 flex-1 overflow-y-auto">
+    <div id="authNotice" class="hidden mb-4 text-sm text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+      You’re viewing a local board. Sign in to sync your tasks to the cloud.
+    </div>
     <div id="board" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center text-gray-400 italic"></div>
   </main>
 
+  <!-- Bottom rail -->
   <div class="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50">
     <div class="flex items-center justify-between px-6 py-3 overflow-x-auto">
       <div class="flex items-center gap-2 w-full overflow-x-auto px-1 py-1 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
@@ -56,13 +91,147 @@
   </div>
 
 <script>
+/*************************
+ *  CONFIG – EDIT THESE  *
+ *************************/
+const STYTCH_PUBLIC_TOKEN = "public-token-REPLACE_ME"; // Stytch Project's public token
+const AUTH_REDIRECT_URL = `${window.location.origin}/auth-call-back.html`; // Must be whitelisted in Stytch
+const API_BASE = "https://your-worker.yourdomain.workers.dev"; // Cloud API base (see Worker stub below)
+
+/**************
+ *  STATE     *
+ **************/
 let activeTab = null;
 let tabData = JSON.parse(localStorage.getItem("solara-tabs")) || {};
+let sessionJWT = localStorage.getItem("stytch_session_jwt") || null;
+let authedUser = JSON.parse(localStorage.getItem("stytch_user") || "null");
+
+// Init Stytch browser SDK
+const stytch = window.Stytch ? window.Stytch(STYTCH_PUBLIC_TOKEN) : null;
+
+/*******************
+ *  UTILITIES       *
+ *******************/
+const debounce = (fn, ms = 600) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+function initialsFor(user){
+  const full = (user?.name?.first_name || "") + " " + (user?.name?.last_name || "");
+  const fromName = full.trim().split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("");
+  if(fromName) return fromName.toUpperCase();
+  const email = user?.email_addresses?.[0]?.email_address || "?";
+  return email.slice(0,2).toUpperCase();
+}
 
 function saveTabsToStorage() {
   localStorage.setItem("solara-tabs", JSON.stringify(tabData));
 }
 
+const saveTabsToCloud = debounce(async () => {
+  if (!sessionJWT) return; // only sync when signed in
+  try{
+    const res = await fetch(`${API_BASE}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionJWT}` },
+      body: JSON.stringify({ tabs: tabData })
+    });
+    if(!res.ok){ console.warn('Cloud save failed', await res.text()); }
+  }catch(err){ console.warn('Cloud save error', err); }
+}, 500);
+
+async function loadTabsFromCloud(){
+  if (!sessionJWT) return false;
+  try{
+    const res = await fetch(`${API_BASE}/tasks`, {
+      headers: { 'Authorization': `Bearer ${sessionJWT}` }
+    });
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.tabs){ tabData = data.tabs; saveTabsToStorage(); return true; }
+    }
+  }catch(err){ console.warn('Cloud load error', err); }
+  return false;
+}
+
+/*******************
+ *  AUTH HANDLERS   *
+ *******************/
+function updateAuthUI(){
+  const googleBtn = document.getElementById('googleBtn');
+  const userArea = document.getElementById('userArea');
+  const authNotice = document.getElementById('authNotice');
+  if(sessionJWT && authedUser){
+    // Signed in
+    googleBtn.classList.add('hidden');
+    userArea.classList.remove('hidden');
+    document.getElementById('avatar').textContent = initialsFor(authedUser);
+    const name = [authedUser?.name?.first_name, authedUser?.name?.last_name].filter(Boolean).join(' ')
+      || authedUser?.name || (authedUser?.email_addresses?.[0]?.email_address ?? 'User');
+    document.getElementById('userName').textContent = name;
+    document.getElementById('userEmail').textContent = authedUser?.email_addresses?.[0]?.email_address ?? '';
+    authNotice.classList.add('hidden');
+  }else{
+    // Signed out
+    userArea.classList.add('hidden');
+    googleBtn.classList.remove('hidden');
+    authNotice.classList.remove('hidden');
+  }
+}
+
+function wireAuthButtons(){
+  document.getElementById('googleBtn').onclick = () => {
+    if(!stytch){ return alert('Stytch SDK not loaded'); }
+    stytch.oauth.google.start({
+      login_redirect_url: AUTH_REDIRECT_URL,
+      signup_redirect_url: AUTH_REDIRECT_URL,
+      // Suggested: Always use PKCE; Stytch SDK handles this internally.
+    });
+  };
+
+  document.getElementById('userButton').onclick = () => {
+    const m = document.getElementById('userMenu');
+    m.classList.toggle('hidden');
+  };
+
+  document.addEventListener('click', (e)=>{
+    const menu = document.getElementById('userMenu');
+    const btn = document.getElementById('userButton');
+    if(!menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)){
+      menu.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('signOutBtn').onclick = async () => {
+    try{
+      // Optional: tell backend to revoke session
+      if(sessionJWT){
+        await fetch(`${API_BASE}/logout`, { method:'POST', headers: { 'Authorization': `Bearer ${sessionJWT}` }}).catch(()=>{});
+      }
+    }finally{
+      localStorage.removeItem('stytch_session_jwt');
+      localStorage.removeItem('stytch_user');
+      sessionJWT = null; authedUser = null;
+      updateAuthUI();
+    }
+  };
+
+  document.getElementById('addUserBtn').onclick = async () => {
+    const email = prompt('Invite a user by email:');
+    if(!email) return;
+    if(!sessionJWT) return alert('Sign in first.');
+    try{
+      const res = await fetch(`${API_BASE}/shares`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${sessionJWT}` },
+        body: JSON.stringify({ email })
+      });
+      if(res.ok) alert('Invitation sent (if the backend is wired).');
+      else alert('Invite failed: ' + (await res.text()));
+    }catch(err){ alert('Invite error: ' + err.message); }
+  };
+}
+
+/*******************
+ *  BOARD LOGIC     *
+ *******************/
 function switchTab(tabName) {
   if (!tabData[tabName]) return;
   saveTasks();
@@ -83,6 +252,7 @@ function addTab(name) {
   saveTabsToStorage();
   renderTabs();
   switchTab(name);
+  saveTabsToCloud();
 }
 
 function promptNewTab() {
@@ -97,6 +267,7 @@ function deleteTab(name) {
   saveTabsToStorage();
   renderTabs();
   renderBoard();
+  saveTabsToCloud();
 }
 
 function renderTabs() {
@@ -129,16 +300,17 @@ function renderTabs() {
     tabBtn.innerHTML = `<span>${name}</span>`;
     tabBtn.onclick = () => switchTab(name);
 
-    // Inject double-click to rename
+    // Rename on double click
     tabBtn.ondblclick = () => {
       const newName = prompt("Rename tab:", name);
-      if (!newName || newName.trim() === "" || newName === name || tabData[newName]) return;
+      if (!newName || !newName.trim() || newName === name || tabData[newName]) return;
       tabData[newName] = tabData[name];
       delete tabData[name];
       if (activeTab === name) activeTab = newName;
       saveTabsToStorage();
       renderTabs();
       switchTab(activeTab);
+      saveTabsToCloud();
     };
 
     tabBtn.oncontextmenu = (e) => {
@@ -165,11 +337,8 @@ function renderBoard() {
     colEl.className = "bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-sm min-h-[200px]";
     const label = col === "todo" ? "To Do" : col.charAt(0).toUpperCase() + col.slice(1).replace("progress", " Progress");
     colEl.innerHTML = `<h2 class='text-lg font-semibold mb-2'>${label}</h2>`;
-    
-    colEl.ondragover = (e) => {
-      e.preventDefault();
-      colEl.classList.add("drag-over");
-    };
+
+    colEl.ondragover = (e) => { e.preventDefault(); colEl.classList.add("drag-over"); };
     colEl.ondragleave = () => colEl.classList.remove("drag-over");
     colEl.ondrop = (e) => {
       e.preventDefault();
@@ -199,9 +368,7 @@ function createTaskElement(id, content, dueDate, priority, column) {
   el.id = id;
   el.textContent = content;
 
-  el.ondragstart = (e) => {
-    e.dataTransfer.setData("text/plain", id);
-  };
+  el.ondragstart = (e) => { e.dataTransfer.setData("text/plain", id); };
 
   el.onclick = () => {
     const input = document.createElement("input");
@@ -212,12 +379,8 @@ function createTaskElement(id, content, dueDate, priority, column) {
     el.replaceWith(input);
     input.focus();
 
-    input.onblur = () => {
-      saveEditedTask(id, input.value.trim(), column);
-    };
-    input.onkeydown = (e) => {
-      if (e.key === "Enter") input.blur();
-    };
+    input.onblur = () => { saveEditedTask(id, input.value.trim(), column); };
+    input.onkeydown = (e) => { if (e.key === "Enter") input.blur(); };
   };
 
   return el;
@@ -231,6 +394,7 @@ function saveEditedTask(taskId, newContent, column) {
     task.content = newContent || task.content;
     saveTabsToStorage();
     renderBoard();
+    saveTabsToCloud();
   }
 }
 
@@ -239,14 +403,13 @@ function moveTaskToColumn(taskId, targetCol) {
   let found = null;
   ["todo", "inprogress", "done"].forEach(col => {
     const index = tabData[activeTab][col].findIndex(t => t.id === taskId);
-    if (index !== -1) {
-      found = tabData[activeTab][col].splice(index, 1)[0];
-    }
+    if (index !== -1) { found = tabData[activeTab][col].splice(index, 1)[0]; }
   });
   if (found) {
     tabData[activeTab][targetCol].push(found);
     saveTabsToStorage();
     renderBoard();
+    saveTabsToCloud();
   }
 }
 
@@ -256,34 +419,32 @@ function clearAllTasks() {
   tabData[activeTab] = { todo: [], inprogress: [], done: [] };
   saveTabsToStorage();
   renderBoard();
+  saveTabsToCloud();
 }
 
 function addNewTask() {
   if (!activeTab || !tabData[activeTab]) return;
-
   const content = prompt("Enter task content:");
   if (!content || !content.trim()) return;
-
   const id = "task-" + Date.now();
-  const newTask = {
-    id,
-    content: content.trim(),
-    dueDate: null,
-    priority: null
-  };
-
+  const newTask = { id, content: content.trim(), dueDate: null, priority: null };
   tabData[activeTab]["todo"].push(newTask);
   saveTabsToStorage();
   renderBoard();
+  saveTabsToCloud();
 }
 
-function saveTasks() {}
+function saveTasks() { /* kept for parity with previous code */ }
 
 function exportBoardAsPDF() {
   html2pdf().from(document.getElementById("board")).save("solara-board.pdf");
 }
 
-window.onload = () => {
+/*******************
+ *  BOOT            *
+ *******************/
+window.onload = async () => {
+  // Default tab
   if (Object.keys(tabData).length === 0) {
     const defaultName = "Click to edit";
     tabData[defaultName] = { todo: [], inprogress: [], done: [] };
@@ -292,6 +453,14 @@ window.onload = () => {
   renderTabs();
   activeTab = Object.keys(tabData)[0];
   switchTab(activeTab);
+
+  // Auth UI + try loading from cloud
+  updateAuthUI();
+  wireAuthButtons();
+  if(sessionJWT){
+    const ok = await loadTabsFromCloud();
+    if(ok){ renderTabs(); switchTab(Object.keys(tabData)[0]); }
+  }
 };
 </script>
 </body>
