@@ -24,14 +24,8 @@
       <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
     </div>
 
-    <!-- Right auth/actions area -->
+    <!-- Right auth/actions area (auth required; no Google button) -->
     <div class="flex items-center gap-3">
-      <!-- Visible when signed OUT -->
-      <button id="googleBtn" class="hidden px-3 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">
-        Continue with Google
-      </button>
-
-      <!-- Visible when signed IN -->
       <div id="userArea" class="hidden relative">
         <button id="userButton" class="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
           <span id="avatar" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"></span>
@@ -59,11 +53,8 @@
     </div>
   </header>
 
-  <!-- Main -->
+  <!-- Main (no local board banner) -->
   <main class="p-6 flex-1 overflow-y-auto">
-    <div id="authNotice" class="hidden mb-4 text-sm text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg p-3">
-      You’re viewing a local board. Sign in to sync your tasks to the cloud.
-    </div>
     <div id="board" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center text-gray-400 italic"></div>
   </main>
 
@@ -96,7 +87,7 @@
  *************************/
 const STYTCH_PUBLIC_TOKEN = "public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8"; // Stytch Project's public token
 const AUTH_REDIRECT_URL = `${window.location.origin}/auth-call-back.html`; // Must be whitelisted in Stytch
-const API_BASE = "https://spring-cell-8727.justinbhalla28.workers.dev"; // Cloud API base (see Worker stub below)
+const API_BASE = "https://spring-cell-8727.justinbhalla28.workers.dev"; // Cloud API base
 
 /**************
  *  STATE     *
@@ -113,12 +104,14 @@ const stytch = window.Stytch ? window.Stytch(STYTCH_PUBLIC_TOKEN) : null;
  *  UTILITIES       *
  *******************/
 const debounce = (fn, ms = 600) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+function b64urlDecode(str){ try{ return decodeURIComponent(atob(str.replace(/-/g,'+').replace(/_/g,'/')).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')); }catch{ return '{}'; } }
+function decodeJWT(jwt){ try{ const payload = jwt.split('.')[1]; return JSON.parse(b64urlDecode(payload)); } catch { return {}; } }
 function initialsFor(user){
   const full = (user?.name?.first_name || "") + " " + (user?.name?.last_name || "");
   const fromName = full.trim().split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("");
   if(fromName) return fromName.toUpperCase();
-  const email = user?.email_addresses?.[0]?.email_address || "?";
-  return email.slice(0,2).toUpperCase();
+  const email = user?.email_addresses?.[0]?.email_address || user?.email || "?";
+  return (email || "?").slice(0,2).toUpperCase();
 }
 
 function saveTabsToStorage() {
@@ -152,45 +145,27 @@ async function loadTabsFromCloud(){
 }
 
 /*******************
- *  AUTH HANDLERS   *
+ *  AUTH (required) *
  *******************/
 function updateAuthUI(){
-  const googleBtn = document.getElementById('googleBtn');
   const userArea = document.getElementById('userArea');
-  const authNotice = document.getElementById('authNotice');
   if(sessionJWT && authedUser){
-    // Signed in
-    googleBtn.classList.add('hidden');
     userArea.classList.remove('hidden');
     document.getElementById('avatar').textContent = initialsFor(authedUser);
     const name = [authedUser?.name?.first_name, authedUser?.name?.last_name].filter(Boolean).join(' ')
-      || authedUser?.name || (authedUser?.email_addresses?.[0]?.email_address ?? 'User');
+      || authedUser?.name || authedUser?.email || (authedUser?.email_addresses?.[0]?.email_address ?? 'User');
     document.getElementById('userName').textContent = name;
-    document.getElementById('userEmail').textContent = authedUser?.email_addresses?.[0]?.email_address ?? '';
-    authNotice.classList.add('hidden');
-  }else{
-    // Signed out
+    document.getElementById('userEmail').textContent = authedUser?.email || (authedUser?.email_addresses?.[0]?.email_address ?? '');
+  } else {
     userArea.classList.add('hidden');
-    googleBtn.classList.remove('hidden');
-    authNotice.classList.remove('hidden');
   }
 }
 
-function wireAuthButtons(){
-  document.getElementById('googleBtn').onclick = () => {
-    if(!stytch){ return alert('Stytch SDK not loaded'); }
-    stytch.oauth.google.start({
-      login_redirect_url: AUTH_REDIRECT_URL,
-      signup_redirect_url: AUTH_REDIRECT_URL,
-      // Suggested: Always use PKCE; Stytch SDK handles this internally.
-    });
-  };
-
+function wireAuthMenu(){
   document.getElementById('userButton').onclick = () => {
     const m = document.getElementById('userMenu');
     m.classList.toggle('hidden');
   };
-
   document.addEventListener('click', (e)=>{
     const menu = document.getElementById('userMenu');
     const btn = document.getElementById('userButton');
@@ -201,7 +176,6 @@ function wireAuthButtons(){
 
   document.getElementById('signOutBtn').onclick = async () => {
     try{
-      // Optional: tell backend to revoke session
       if(sessionJWT){
         await fetch(`${API_BASE}/logout`, { method:'POST', headers: { 'Authorization': `Bearer ${sessionJWT}` }}).catch(()=>{});
       }
@@ -209,7 +183,8 @@ function wireAuthButtons(){
       localStorage.removeItem('stytch_session_jwt');
       localStorage.removeItem('stytch_user');
       sessionJWT = null; authedUser = null;
-      updateAuthUI();
+      // Send to login flow immediately
+      window.location.href = `${AUTH_REDIRECT_URL}?next=${encodeURIComponent(location.pathname)}`;
     }
   };
 
@@ -223,10 +198,45 @@ function wireAuthButtons(){
         headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${sessionJWT}` },
         body: JSON.stringify({ email })
       });
-      if(res.ok) alert('Invitation sent (if the backend is wired).');
+      if(res.ok) alert('Invitation sent.');
       else alert('Invite failed: ' + (await res.text()));
     }catch(err){ alert('Invite error: ' + err.message); }
   };
+}
+
+async function getUserProfile(){
+  // Prefer server to return canonical user profile
+  try{
+    const res = await fetch(`${API_BASE}/me`, { headers: { 'Authorization': `Bearer ${sessionJWT}` }});
+    if(res.ok){
+      const user = await res.json();
+      if(user){ authedUser = user; localStorage.setItem('stytch_user', JSON.stringify(user)); return user; }
+    }
+  }catch(e){ /* ignore; fallback below */ }
+
+  // Fallback: decode from JWT if Stytch embeds limited info
+  const payload = decodeJWT(sessionJWT);
+  const guessEmail = payload?.sub || payload?.email || '';
+  const user = {
+    name: payload?.name || '',
+    email: guessEmail,
+    email_addresses: guessEmail ? [{email_address: guessEmail}] : []
+  };
+  authedUser = user; localStorage.setItem('stytch_user', JSON.stringify(user));
+  return user;
+}
+
+async function ensureAuth(){
+  // If SDK has a session, you could also pull it: stytch?.session?.getSync?.()
+  if(!sessionJWT){
+    // No local session; push to login (no local board)
+    const next = `${location.pathname}${location.search || ''}`;
+    window.location.href = `${AUTH_REDIRECT_URL}?next=${encodeURIComponent(next)}`;
+    throw new Error('Redirecting to auth');
+  }
+  // Populate user profile
+  await getUserProfile();
+  updateAuthUI();
 }
 
 /*******************
@@ -434,7 +444,7 @@ function addNewTask() {
   saveTabsToCloud();
 }
 
-function saveTasks() { /* kept for parity with previous code */ }
+function saveTasks() { /* reserved for future use */ }
 
 function exportBoardAsPDF() {
   html2pdf().from(document.getElementById("board")).save("solara-board.pdf");
@@ -444,22 +454,31 @@ function exportBoardAsPDF() {
  *  BOOT            *
  *******************/
 window.onload = async () => {
-  // Default tab
-  if (Object.keys(tabData).length === 0) {
-    const defaultName = "Click to edit";
-    tabData[defaultName] = { todo: [], inprogress: [], done: [] };
-    saveTabsToStorage();
-  }
-  renderTabs();
-  activeTab = Object.keys(tabData)[0];
-  switchTab(activeTab);
+  try {
+    // Enforce auth (no local mode)
+    await ensureAuth();
+    wireAuthMenu();
 
-  // Auth UI + try loading from cloud
-  updateAuthUI();
-  wireAuthButtons();
-  if(sessionJWT){
+    // Try to load from cloud; if empty, seed one default tab
     const ok = await loadTabsFromCloud();
-    if(ok){ renderTabs(); switchTab(Object.keys(tabData)[0]); }
+    if (!ok || Object.keys(tabData).length === 0) {
+      const defaultName = "Click to edit";
+      tabData[defaultName] = { todo: [], inprogress: [], done: [] };
+      saveTabsToStorage();
+      await saveTabsToCloud();
+    }
+
+    // Render
+    renderTabs();
+    activeTab = Object.keys(tabData)[0];
+    switchTab(activeTab);
+
+    // Reveal controls now that we're authenticated
+    document.getElementById('userArea').classList.remove('hidden');
+    document.getElementById('taskButtons').classList.remove('hidden');
+  } catch(e) {
+    // likely redirected
+    console.warn(e.message || e);
   }
 };
 </script>
