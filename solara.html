@@ -175,18 +175,18 @@ function wireAuthMenu(){
   });
 
   document.getElementById('signOutBtn').onclick = async () => {
-    try{
-      if(sessionJWT){
-        await fetch(`${API_BASE}/logout`, { method:'POST', headers: { 'Authorization': `Bearer ${sessionJWT}` }}).catch(()=>{});
-      }
-    }finally{
-      localStorage.removeItem('stytch_session_jwt');
-      localStorage.removeItem('stytch_user');
-      sessionJWT = null; authedUser = null;
-      // Send to login flow immediately
-      window.location.href = `${AUTH_REDIRECT_URL}?next=${encodeURIComponent(location.pathname)}`;
+  try{
+    if(sessionJWT){
+      await fetch(`${API_BASE}/logout`, { method:'POST', headers: { 'Authorization': `Bearer ${sessionJWT}` }}).catch(()=>{});
     }
-  };
+  }finally{
+    localStorage.removeItem('stytch_session_jwt');
+    localStorage.removeItem('stytch_user');
+    sessionJWT = null; authedUser = null;
+    // Reload to kick off auto OAuth again
+    window.location.reload();
+  }
+};
 
   document.getElementById('addUserBtn').onclick = async () => {
     const email = prompt('Invite a user by email:');
@@ -227,12 +227,17 @@ async function getUserProfile(){
 }
 
 async function ensureAuth(){
-  // If SDK has a session, you could also pull it: stytch?.session?.getSync?.()
+  if(!stytch){ alert('Stytch SDK not loaded'); throw new Error('Stytch SDK not loaded'); }
   if(!sessionJWT){
-    // No local session; push to login (no local board)
+    // Save intended destination locally (avoid adding query params to redirect URL to satisfy Stytch validation)
     const next = `${location.pathname}${location.search || ''}`;
-    window.location.href = `${AUTH_REDIRECT_URL}?next=${encodeURIComponent(next)}`;
-    throw new Error('Redirecting to auth');
+    try { localStorage.setItem('post_auth_next', next); } catch {}
+    // Auto-start Google OAuth (no button)
+    stytch.oauth.google.start({
+      login_redirect_url: AUTH_REDIRECT_URL,
+      signup_redirect_url: AUTH_REDIRECT_URL,
+    });
+    throw new Error('Redirecting to Google OAuth');
   }
   // Populate user profile
   await getUserProfile();
@@ -481,6 +486,63 @@ window.onload = async () => {
     console.warn(e.message || e);
   }
 };
+// ====== END of main page script ======
+</script>
+
+<!-- ===========================
+     auth-call-back.html
+     =========================== -->
+<!-- Drop this as a separate file at /auth-call-back.html and whitelist EXACTLY this path in Stytch Dashboard > Redirect URLs.
+     Also add your domain in Dashboard > SDK configuration (Allowed domains). -->
+<script id="AUTH_CALLBACK_PAGE" type="text/plain">
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solara — Finishing sign-in…</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://js.stytch.com/stytch.js"></script>
+</head>
+<body class="h-full grid place-items-center bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100">
+  <div class="p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow max-w-md w-full text-center">
+    <h1 class="text-xl font-semibold mb-2">Finishing sign-in…</h1>
+    <p id="status" class="text-sm text-gray-600 dark:text-gray-300">Authenticating with Stytch…</p>
+  </div>
+
+  <script>
+    (async function(){
+      const stytch = window.Stytch && window.Stytch("public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8");
+      const q = new URLSearchParams(window.location.search);
+      const token = q.get('token');
+      const token_type = q.get('stytch_token_type'); // expect 'oauth'
+
+      const status = (msg)=>{ document.getElementById('status').textContent = msg; };
+
+      if(!stytch){ status('Stytch SDK failed to load.'); return; }
+      if(!token || token_type !== 'oauth'){
+        status('Missing or invalid OAuth token.');
+        return;
+      }
+
+      try{
+        const res = await stytch.oauth.authenticate({ token });
+        const { session_jwt, user } = res || {};
+        if(!session_jwt){ throw new Error('No session returned'); }
+        localStorage.setItem('stytch_session_jwt', session_jwt);
+        if(user){ localStorage.setItem('stytch_user', JSON.stringify(user)); }
+        const next = localStorage.getItem('post_auth_next') || '/solara.html';
+        try { localStorage.removeItem('post_auth_next'); } catch {}
+        status('Success. Redirecting…');
+        window.location.replace(next);
+      }catch(err){
+        console.error(err);
+        status('Authentication failed. Check console for details.');
+      }
+    })();
+  </script>
+</body>
+</html>
 </script>
 </body>
 </html>
