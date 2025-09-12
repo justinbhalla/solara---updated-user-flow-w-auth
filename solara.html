@@ -1,3 +1,11 @@
+<!-- ===========================
+     solara.html — Auth required
+     Conditions:
+     • Redirect to /sign-in.html if no session
+     • No Google button
+     • No local board banner
+     • Show user’s name (fallback to email or initials)
+     =========================== -->
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
@@ -6,7 +14,7 @@
   <title>Solara – Adaptive Workspace</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <!-- Stytch Browser SDK -->
+  <!-- Stytch Browser SDK (optional here; primary use in callback) -->
   <script src="https://js.stytch.com/stytch.js"></script>
   <style>
     .fade-in { animation: fadeIn 0.3s ease-in-out; }
@@ -24,14 +32,9 @@
       <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
     </div>
 
-    <!-- Right auth/actions area -->
+    <!-- Right auth/actions area (no Google button) -->
     <div class="flex items-center gap-3">
-      <!-- Visible when signed OUT -->
-      <button id="googleBtn" class="hidden px-3 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">
-        Continue with Google
-      </button>
-
-      <!-- Visible when signed IN -->
+      <!-- Signed IN only -->
       <div id="userArea" class="hidden relative">
         <button id="userButton" class="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
           <span id="avatar" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"></span>
@@ -61,9 +64,7 @@
 
   <!-- Main -->
   <main class="p-6 flex-1 overflow-y-auto">
-    <div id="authNotice" class="hidden mb-4 text-sm text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg p-3">
-      You’re viewing a local board. Sign in to sync your tasks to the cloud.
-    </div>
+    <!-- Removed local-board banner as auth is required -->
     <div id="board" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center text-gray-400 italic"></div>
   </main>
 
@@ -94,8 +95,6 @@
 /*************************
  *  CONFIG – EDIT THESE  *
  *************************/
-const STYTCH_PUBLIC_TOKEN = "public-token-test-41b83ad2-8bb8-4787-8f9d-8005d9545bc8"; // Stytch Project's public token
-const AUTH_REDIRECT_URL = `${window.location.origin}/auth-call-back.html`; // Must be whitelisted in Stytch
 const API_BASE = "https://spring-cell-8727.justinbhalla28.workers.dev"; // Cloud API base (see Worker stub below)
 
 /**************
@@ -103,22 +102,25 @@ const API_BASE = "https://spring-cell-8727.justinbhalla28.workers.dev"; // Cloud
  **************/
 let activeTab = null;
 let tabData = JSON.parse(localStorage.getItem("solara-tabs")) || {};
-let sessionJWT = localStorage.getItem("stytch_session_jwt") || null;
-let authedUser = JSON.parse(localStorage.getItem("stytch_user") || "null");
-
-// Init Stytch browser SDK
-const stytch = window.Stytch ? window.Stytch(STYTCH_PUBLIC_TOKEN) : null;
+let sessionJWT = null;
+let authedUser = null;
 
 /*******************
  *  UTILITIES       *
  *******************/
 const debounce = (fn, ms = 600) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
 function initialsFor(user){
-  const full = (user?.name?.first_name || "") + " " + (user?.name?.last_name || "");
-  const fromName = full.trim().split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("");
+  const full = ((user?.name?.first_name || "") + " " + (user?.name?.last_name || "")).trim();
+  const fromName = full.split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("");
   if(fromName) return fromName.toUpperCase();
   const email = user?.email_addresses?.[0]?.email_address || "?";
   return email.slice(0,2).toUpperCase();
+}
+function displayNameFor(user){
+  const parts = [user?.name?.first_name, user?.name?.last_name].filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return user?.email_addresses?.[0]?.email_address || initialsFor(user);
 }
 
 function saveTabsToStorage() {
@@ -133,6 +135,7 @@ const saveTabsToCloud = debounce(async () => {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionJWT}` },
       body: JSON.stringify({ tabs: tabData })
     });
+    if(res.status === 401) return requireReauth();
     if(!res.ok){ console.warn('Cloud save failed', await res.text()); }
   }catch(err){ console.warn('Cloud save error', err); }
 }, 500);
@@ -143,6 +146,7 @@ async function loadTabsFromCloud(){
     const res = await fetch(`${API_BASE}/tasks`, {
       headers: { 'Authorization': `Bearer ${sessionJWT}` }
     });
+    if(res.status === 401) return requireReauth();
     if(res.ok){
       const data = await res.json();
       if(data && data.tabs){ tabData = data.tabs; saveTabsToStorage(); return true; }
@@ -154,38 +158,26 @@ async function loadTabsFromCloud(){
 /*******************
  *  AUTH HANDLERS   *
  *******************/
+function requireReauth(){
+  try{
+    localStorage.removeItem('stytch_session_jwt');
+    localStorage.removeItem('stytch_user');
+  }catch{}
+  location.replace('/sign-in.html');
+}
+
 function updateAuthUI(){
-  const googleBtn = document.getElementById('googleBtn');
   const userArea = document.getElementById('userArea');
-  const authNotice = document.getElementById('authNotice');
-  if(sessionJWT && authedUser){
-    // Signed in
-    googleBtn.classList.add('hidden');
-    userArea.classList.remove('hidden');
-    document.getElementById('avatar').textContent = initialsFor(authedUser);
-    const name = [authedUser?.name?.first_name, authedUser?.name?.last_name].filter(Boolean).join(' ')
-      || authedUser?.name || (authedUser?.email_addresses?.[0]?.email_address ?? 'User');
-    document.getElementById('userName').textContent = name;
-    document.getElementById('userEmail').textContent = authedUser?.email_addresses?.[0]?.email_address ?? '';
-    authNotice.classList.add('hidden');
-  }else{
-    // Signed out
-    userArea.classList.add('hidden');
-    googleBtn.classList.remove('hidden');
-    authNotice.classList.remove('hidden');
-  }
+  const authStateOK = !!(sessionJWT && authedUser);
+  if(!authStateOK) return requireReauth();
+
+  userArea.classList.remove('hidden');
+  document.getElementById('avatar').textContent = initialsFor(authedUser);
+  document.getElementById('userName').textContent = displayNameFor(authedUser);
+  document.getElementById('userEmail').textContent = authedUser?.email_addresses?.[0]?.email_address || '';
 }
 
 function wireAuthButtons(){
-  document.getElementById('googleBtn').onclick = () => {
-    if(!stytch){ return alert('Stytch SDK not loaded'); }
-    stytch.oauth.google.start({
-      login_redirect_url: AUTH_REDIRECT_URL,
-      signup_redirect_url: AUTH_REDIRECT_URL,
-      // Suggested: Always use PKCE; Stytch SDK handles this internally.
-    });
-  };
-
   document.getElementById('userButton').onclick = () => {
     const m = document.getElementById('userMenu');
     m.classList.toggle('hidden');
@@ -201,29 +193,30 @@ function wireAuthButtons(){
 
   document.getElementById('signOutBtn').onclick = async () => {
     try{
-      // Optional: tell backend to revoke session
       if(sessionJWT){
         await fetch(`${API_BASE}/logout`, { method:'POST', headers: { 'Authorization': `Bearer ${sessionJWT}` }}).catch(()=>{});
       }
     }finally{
-      localStorage.removeItem('stytch_session_jwt');
-      localStorage.removeItem('stytch_user');
+      try{
+        localStorage.removeItem('stytch_session_jwt');
+        localStorage.removeItem('stytch_user');
+      }catch{}
       sessionJWT = null; authedUser = null;
-      updateAuthUI();
+      requireReauth();
     }
   };
 
   document.getElementById('addUserBtn').onclick = async () => {
     const email = prompt('Invite a user by email:');
     if(!email) return;
-    if(!sessionJWT) return alert('Sign in first.');
+    if(!sessionJWT) return requireReauth();
     try{
       const res = await fetch(`${API_BASE}/shares`, {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${sessionJWT}` },
         body: JSON.stringify({ email })
       });
-      if(res.ok) alert('Invitation sent (if the backend is wired).');
+      if(res.ok) alert('Invitation sent (if backend wired).');
       else alert('Invite failed: ' + (await res.text()));
     }catch(err){ alert('Invite error: ' + err.message); }
   };
@@ -444,6 +437,11 @@ function exportBoardAsPDF() {
  *  BOOT            *
  *******************/
 window.onload = async () => {
+  // Hard gate: require session before ANY rendering
+  sessionJWT = localStorage.getItem('stytch_session_jwt');
+  authedUser = JSON.parse(localStorage.getItem('stytch_user') || 'null');
+  if(!sessionJWT || !authedUser){ return requireReauth(); }
+
   // Default tab
   if (Object.keys(tabData).length === 0) {
     const defaultName = "Click to edit";
@@ -454,13 +452,11 @@ window.onload = async () => {
   activeTab = Object.keys(tabData)[0];
   switchTab(activeTab);
 
-  // Auth UI + try loading from cloud
+  // Auth UI + load from cloud
   updateAuthUI();
   wireAuthButtons();
-  if(sessionJWT){
-    const ok = await loadTabsFromCloud();
-    if(ok){ renderTabs(); switchTab(Object.keys(tabData)[0]); }
-  }
+  const ok = await loadTabsFromCloud();
+  if(ok){ renderTabs(); switchTab(Object.keys(tabData)[0]); }
 };
 </script>
 </body>
