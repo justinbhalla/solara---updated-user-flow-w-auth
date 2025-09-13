@@ -23,47 +23,42 @@
       <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
     </div>
 
-    <!-- Right rail: task buttons first, user menu last (anchors to right edge) -->
-    <div class="flex items-center gap-4">
-      <!-- Always-visible Quick Actions -->
-      <div id="taskButtons" class="space-x-3 flex items-center">
-        <button onclick="clearAllTasks()" title="Clear All Tasks" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6" />
-          </svg>
-        </button>
-        <button id="newTaskBtn" onclick="addNewTask()" class="px-4 py-2 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">+</button>
-      </div>
-
-      <!-- Signed-in user (name → email → initials). No Google button. Visible by default; redirected if unauth. -->
-      <div id="userArea" class="relative">
-        <button id="userButton" class="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-          <span id="avatar" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold">?</span>
-          <span id="userName" class="text-sm font-medium">User</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
-        </button>
-        <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 rounded-xl menu-card bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div class="px-4 py-3 text-sm">
-            <div id="userEmail" class="text-gray-600 dark:text-gray-300"></div>
-          </div>
-          <div class="border-t border-gray-100 dark:border-gray-700"></div>
-          <button id="addUserBtn" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700">Add user…</button>
-          <button id="signOutBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Sign out</button>
+    <!-- Signed-in user (name → email → initials). No Google button. Visible by default; redirected if unauth. -->
+    <div id="userArea" class="relative">
+      <button id="userButton" class="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+        <span id="avatar" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold">?</span>
+        <span id="userName" class="text-sm font-medium">User</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+      </button>
+      <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 rounded-xl menu-card bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div class="px-4 py-3 text-sm">
+          <div id="userEmail" class="text-gray-600 dark:text-gray-300"></div>
         </div>
+        <div class="border-t border-gray-100 dark:border-gray-700"></div>
+        <button id="addUserBtn" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700">Add user…</button>
+        <button id="signOutBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Sign out</button>
       </div>
     </div>
   </header>
 
-  <!-- Nav -->
-  <nav class="flex gap-6 px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
-    <button class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h14v2H3V3zm0 4h9v2H3V7zm0 4h14v2H3v-2zm0 4h9v2H3v-2z"/></svg>
-      <span>Tasks</span>
-    </button>
-    <button onclick="window.location.href='reports.html'" class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-indigo-600">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M7 16v-4m4 4V8m4 8V5"/></svg>
-      <span>Reports</span>
-    </button>
+  <!-- Nav: left = section tabs, right = actions (Trash + Plus aligned to the right) -->
+  <nav class="flex items-center justify-between px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
+    <div class="flex items-center gap-6">
+      <button class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 3h14v2H3V3zm0 4h9v2H3V7zm0 4h14v2H3v-2zm0 4h9v2H3v-2z"/></svg>
+        <span>Tasks</span>
+      </button>
+      <button onclick="window.location.href='reports.html'" class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-indigo-600">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M7 16v-4m4 4V8m4 8V5"/></svg>
+        <span>Reports</span>
+      </button>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="clearAllTasks()" title="Clear all tasks in current tab" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6"/></svg>
+      </button>
+      <button id="newTaskBtn" onclick="addNewTask()" class="px-4 py-1.5 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-500 shadow transition">+</button>
+    </div>
   </nav>
 
   <!-- Main Board -->
@@ -81,7 +76,7 @@
     </div>
   </main>
 
-  <!-- Bottom rail (tabs + export) -->
+  <!-- Bottom rail (tabs left + export right) -->
   <div class="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50">
     <div class="flex items-center justify-between px-6 py-3 overflow-x-auto">
       <div class="flex items-center gap-2 w-full overflow-x-auto px-1 py-1">
