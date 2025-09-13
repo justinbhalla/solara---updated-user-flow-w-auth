@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Solara – Reports</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="flex flex-col min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans">
+
+  <!-- Header -->
+  <header class="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Solara</h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400">Part of the ZLG Product Suite</p>
+    </div>
+    <div class="space-x-3 flex items-center">
+      <button onclick="clearReports()" title="Clear Reports" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6" />
+        </svg>
+      </button>
+      <button onclick="addReportBlock()" title="Add Report Type" class="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 shadow">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="flex gap-6 px-6 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
+    <button class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-indigo-600" onclick="window.location.href='index.html'">
+      <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3h14v2H3V3zm0 4h9v2H3V7zm0 4h14v2H3v-2zm0 4h9v2H3v-2z"/></svg>
+      <span>Tasks</span>
+    </button>
+    <button class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold">
+      <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M7 16v-4m4 4V8m4 8V5"/>
+      </svg>
+      <span>Reports</span>
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="p-6 flex-1 overflow-y-auto">
+    <h2 class="text-2xl font-semibold mb-6">Workspace Insights</h2>
+    <div id="report-area" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Completion Rate -->
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold">Completion Rate</h3>
+          <svg class="h-6 w-6 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M3 12l2 2 4-4m2 10h6a2 2 0 0 0 2-2v-5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M17 8h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Percentage of completed tasks across all tabs.</p>
+        <div class="text-4xl font-bold text-green-500 text-center" id="completionRate">--%</div>
+      </div>
+
+      <!-- Task Status -->
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold">Task Status</h3>
+          <svg class="h-6 w-6 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M9 17v-6h6v6h4V7H5v10h4z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Breakdown by current state.</p>
+        <ul class="space-y-2 text-sm font-medium">
+          <li class="flex justify-between text-gray-800 dark:text-gray-200">
+            <span>To Do</span>
+            <span id="todoCount">--</span>
+          </li>
+          <li class="flex justify-between text-yellow-600">
+            <span>In Progress</span>
+            <span id="inprogressCount">--</span>
+          </li>
+          <li class="flex justify-between text-green-600">
+            <span>Done</span>
+            <span id="doneCount">--</span>
+          </li>
+          <li class="flex justify-between text-indigo-600 font-semibold">
+            <span>Total</span>
+            <span id="totalCount">--</span>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Sticky Footer -->
+  <div class="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 z-50">
+    <div class="flex items-center justify-between px-6 py-3">
+      <span class="text-sm text-gray-500 dark:text-gray-400"></span>
+      <button onclick="exportReportsAsPDF()" class="p-2 rounded-full hover:bg-indigo-100 text-indigo-600" title="Export as PDF">
+        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 16l4-5h-3V4h-2v7H8l4 5zm-7 4h14v-2H5v2z"/>
+        </svg>
+      </button>
+    </div>
+    <footer class="text-center text-xs text-gray-500 dark:text-gray-400 px-6 py-3 border-t border-gray-200 dark:border-gray-700">
+      © 2025 ZenLock Group (ZLG). All rights reserved.
+    </footer>
+  </div>
+
+  <!-- Scripts -->
+<!-- Inside <script> tag at the bottom of reports.html -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const reportArea = document.getElementById("report-area");
+
+  const predefinedReports = [
+    {
+      title: "Overdue Tasks",
+      description: "Tasks past their due date across tabs.",
+      icon: `<svg class="h-6 w-6 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+             </svg>`,
+      content: `<div class="text-2xl font-bold text-red-500 text-center">--</div>`
+    },
+    {
+      title: "Avg Task Age",
+      description: "Average duration since task creation.",
+      icon: `<svg class="h-6 w-6 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+             </svg>`,
+      content: `<div class="text-2xl font-bold text-yellow-500 text-center">--</div>`
+    },
+    {
+      title: "Priority Distribution",
+      description: "Tasks grouped by priority level across all tabs.",
+      icon: `<svg class="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+             </svg>`,
+      content: `
+        <ul class="text-sm font-medium space-y-1 text-gray-800 dark:text-gray-200">
+          <li class="flex justify-between"><span>High</span><span>--</span></li>
+          <li class="flex justify-between"><span>Medium</span><span>--</span></li>
+          <li class="flex justify-between"><span>Low</span><span>--</span></li>
+        </ul>
+      `
+    }
+  ];
+
+  window.addReportBlock = function () {
+    const existingTitles = Array.from(reportArea.children).map(
+      el => el.querySelector("h3")?.textContent?.trim()
+    );
+
+    const next = predefinedReports.find(r => !existingTitles.includes(r.title));
+    if (!next) {
+      alert("All predefined reports are already added.");
+      return;
+    }
+
+    const block = document.createElement("div");
+    block.className = "bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm";
+    block.innerHTML = `
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">${next.title}</h3>
+        ${next.icon}
+      </div>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">${next.description}</p>
+      ${next.content}
+    `;
+    reportArea.appendChild(block);
+    loadReportData();
+  };
+
+  window.clearReports = function () {
+    const keep = 2;
+    while (reportArea.children.length > keep) {
+      reportArea.removeChild(reportArea.lastChild);
+    }
+  };
+
+  window.loadReportData = function () {
+    const data = JSON.parse(localStorage.getItem("solara-data"));
+    if (!data) return;
+
+    const now = new Date();
+    const priorityMap = { High: 0, Medium: 0, Low: 0 };
+    let total = 0, done = 0, todo = 0, inprogress = 0;
+    let overdue = 0;
+    let ageSum = 0;
+
+    ['todo', 'inprogress', 'done'].forEach(status => {
+      const list = data[status] || [];
+      list.forEach(task => {
+        total++;
+        if (status === 'done') done++;
+        if (status === 'todo') todo++;
+        if (status === 'inprogress') inprogress++;
+
+        const priority = task.priority || 'Medium';
+        if (priorityMap[priority] !== undefined) {
+          priorityMap[priority]++;
+        }
+
+        if (status !== 'done' && task.dueDate) {
+          const due = new Date(task.dueDate);
+          if (!isNaN(due) && due < now) overdue++;
+        }
+
+        const match = task.id.match(/task-(\d+)/);
+        if (match) {
+          const created = new Date(parseInt(match[1]));
+          const age = (now - created) / (1000 * 60 * 60 * 24);
+          ageSum += age;
+        }
+      });
+    });
+
+    const avgAge = total ? Math.round(ageSum / total) : 0;
+    const completionRate = total ? Math.round((done / total) * 100) : 0;
+
+    document.getElementById("todoCount").textContent = todo;
+    document.getElementById("inprogressCount").textContent = inprogress;
+    document.getElementById("doneCount").textContent = done;
+    document.getElementById("totalCount").textContent = total;
+    document.getElementById("completionRate").textContent = `${completionRate}%`;
+
+    document.querySelectorAll("#report-area .bg-white").forEach(card => {
+      const title = card.querySelector("h3")?.textContent;
+      if (title === "Overdue Tasks") {
+        card.querySelector("div.text-2xl").textContent = overdue;
+      } else if (title === "Avg Task Age") {
+        card.querySelector("div.text-2xl").textContent = `${avgAge}d`;
+      } else if (title === "Priority Distribution") {
+        const spans = card.querySelectorAll("ul li span:last-child");
+        spans[0].textContent = priorityMap["High"];
+        spans[1].textContent = priorityMap["Medium"];
+        spans[2].textContent = priorityMap["Low"];
+      }
+    });
+  };
+
+  window.exportReportsAsPDF = function () {
+    const element = document.getElementById("report-area");
+    if (!element) return alert("No report area found.");
+
+    html2pdf().set({
+      margin: 0.5,
+      filename: 'Solara-Report.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    }).from(element).save();
+  };
+
+  loadReportData();
+});
+</script>
+
+
+
+</body>
+</html>
