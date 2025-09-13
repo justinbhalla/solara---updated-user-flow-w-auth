@@ -23,7 +23,7 @@
     </div>
 
     <!-- Right: signed-in controls (no Google button) -->
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-4">
       <div id="userArea" class="hidden relative">
         <button id="userButton" class="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
           <span id="avatar" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-white text-xs font-semibold"></span>
@@ -40,7 +40,8 @@
         </div>
       </div>
 
-      <div id="taskButtons" class="space-x-3 flex items-center hidden">
+      <!-- Always visible -->
+      <div id="taskButtons" class="space-x-3 flex items-center">
         <button onclick="clearAllTasks()" title="Clear All Tasks" class="p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-all">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m0 0A2.99 2.99 0 017 6h10a2.99 2.99 0 012.418 3H19v10a2 2 0 01-2 2H7a2 2 0 01-2-2V9h.582zM10 11v6m4-6v6" />
@@ -83,7 +84,7 @@
 /* =========================
    CONFIG
    ========================= */
-const API_BASE = "https://spring-cell-8727.justinbhalla28.workers.dev"; // or your custom API domain
+const API_BASE = "https://spring-cell-8727.justinbhalla28.workers.dev";
 const apiUrl = (p) => {
   const base = API_BASE.replace(/\/+$/, "");
   const path = String(p || "").replace(/^\/+/, "");
@@ -154,8 +155,8 @@ function requireReauth(){
     localStorage.removeItem('stytch_session_jwt');
     localStorage.removeItem('stytch_user');
   }catch{}
-  // base-path-safe redirect
-  location.replace(new URL('sign-in.html', location.href).toString());
+  // Per your spec: absolute root path
+  location.replace('/sign-in.html');
 }
 
 function updateAuthUI(){
@@ -207,7 +208,7 @@ async function verifySessionOnce(){
     const res = await fetch(apiUrl('auth/check'), { headers:{ 'Authorization': `Bearer ${sessionJWT}` }});
     return res.ok;
   }catch{
-    // network hiccup → allow local mode; don't boot user
+    // Network hiccup → allow local mode; don't boot user
     return true;
   }
 }
@@ -255,14 +256,7 @@ function deleteTab(name) {
 
 function renderTabs() {
   const tabsContainer = document.getElementById("tabs");
-  const taskButtons = document.getElementById("taskButtons");
   tabsContainer.innerHTML = "";
-
-  if (Object.keys(tabData).length === 0) {
-    taskButtons.classList.add("hidden");
-    return;
-  }
-  taskButtons.classList.remove("hidden");
 
   Object.keys(tabData).forEach(name => {
     const tabBtn = document.createElement("button");
@@ -405,7 +399,14 @@ function clearAllTasks() {
 }
 
 function addNewTask() {
-  if (!activeTab || !tabData[activeTab]) return;
+  if (!activeTab || !tabData[activeTab]) {
+    // ensure a tab exists if someone nuked state
+    const defaultName = "Click to edit";
+    if (!tabData[defaultName]) tabData[defaultName] = { todo: [], inprogress: [], done: [] };
+    activeTab = defaultName;
+    saveTabsToStorage();
+    renderTabs();
+  }
   const content = prompt("Enter task content:");
   if (!content || !content.trim()) return;
   const id = "task-" + Date.now();
